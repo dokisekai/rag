@@ -680,6 +680,10 @@ class RagService:
 
         index.add(vectors)
 
+        # 对 IVF 索引调用 make_direct_map，支持 reconstruct()
+        if hasattr(index, 'make_direct_map'):
+            index.make_direct_map()
+
         # 建立显式映射
         chunk_id_to_faiss_id: Dict[str, int] = {}
         faiss_id_to_chunk_id: Dict[int, str] = {}

@@ -27,7 +27,7 @@ except ImportError:
     httpx = None
 import requests
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Request, Header
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, Response
 from pydantic import BaseModel
@@ -350,6 +350,9 @@ Put ALL your response inside the function arguments. Do NOT write any text outsi
                 processed_body = json.dumps(payload).encode("utf-8")
         except (json.JSONDecodeError, TypeError):
             pass
+
+    if httpx is None:
+        raise HTTPException(status_code=500, detail="httpx is not installed. Install with: pip install httpx")
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
@@ -1251,7 +1254,9 @@ async def generate_skill(payload: dict):
 
 @app.put("/api/skills/{skill_id}")
 async def update_skill(skill_id: str, payload: dict):
-    skill = skills_service.update_skill(skill_id, **payload)
+    allowed_fields = {"name", "description", "category", "version", "enabled", "tools", "prompts", "resources", "config", "content"}
+    filtered_payload = {k: v for k, v in payload.items() if k in allowed_fields}
+    skill = skills_service.update_skill(skill_id, **filtered_payload)
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
     return skill
@@ -1296,6 +1301,26 @@ async def add_mcp_server(payload: dict):
     )
 
 
+@app.put("/api/mcp/servers/{server_id}")
+async def update_mcp_server(server_id: str, payload: dict):
+    """更新 MCP 服务器配置"""
+    server = mcp_client.servers.get(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail="MCP Server not found")
+    if "name" in payload:
+        server.name = payload["name"]
+    if "command" in payload:
+        server.command = payload["command"]
+    if "args" in payload:
+        server.args = payload["args"]
+    if "url" in payload:
+        server.url = payload["url"]
+    if "enabled" in payload:
+        server.enabled = payload["enabled"]
+    mcp_client._save_config()
+    return {"status": "success", "message": "MCP Server updated successfully", "server": mcp_client._to_dict(server)}
+
+
 @app.delete("/api/mcp/servers/{server_id}")
 def remove_mcp_server(server_id: str):
     success = mcp_client.remove_server(server_id)
@@ -1335,9 +1360,6 @@ async def mcp_server_endpoint(payload: dict):
 
 @app.get("/api/mcp/sse")
 async def mcp_sse_endpoint():
-    from fastapi.responses import StreamingResponse
-    import asyncio
-
     async def event_generator():
         yield "event: message\ndata: " + json.dumps({
             "jsonrpc": "2.0",

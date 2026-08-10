@@ -22,7 +22,7 @@ import { CHARACTERS, getCharacter } from '../../data/characters';
 export default function AIAgentsAdminPage() {
   const {
     config,
-    updateConfig,
+    saveConfig,
     avatarType,
     setAvatarType,
   } = useApp();
@@ -39,7 +39,7 @@ export default function AIAgentsAdminPage() {
   const activeCharacter = getCharacter(avatarType);
 
   const handleSaveAgentConfig = () => {
-    updateConfig({
+    saveConfig({
       voice: currentVoice,
       temperature: currentTemp,
       model: currentModel,

@@ -502,3 +502,54 @@ class SkillsService:
                         "skill_name": skill.name,
                     })
         return prompts
+
+    def generate_from_skill_description(self, description: str, llm_service) -> Dict[str, Any]:
+        """利用 LLM 根据自然语言描述自动生成 Skill 配置"""
+        if not description or not description.strip():
+            raise ValueError("Description is required")
+
+        system_prompt = """你是一个技能配置生成专家。根据用户描述，生成一个结构化的技能配置。
+请严格以 JSON 格式输出，不要有任何额外解释：
+{
+  "name": "技能名称",
+  "description": "技能描述",
+  "category": "custom",
+  "tools": [{"name": "tool_name", "description": "工具描述", "inputSchema": {"type": "object", "properties": {}}}],
+  "prompts": [],
+  "resources": []
+}"""
+
+        try:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": description}
+            ]
+            result = llm_service.chat_completion(messages, temperature=0.7)
+            if result and not result.startswith("【"):
+                import json as _json
+                import re as _re
+                match = _re.search(r'\{.*\}', result, _re.DOTALL)
+                if match:
+                    skill_config = _json.loads(match.group(0))
+                    return self.create_skill(
+                        name=skill_config.get("name", "Generated Skill"),
+                        description=skill_config.get("description", description),
+                        category=skill_config.get("category", "custom"),
+                        tools=skill_config.get("tools", []),
+                        prompts=skill_config.get("prompts", []),
+                        resources=skill_config.get("resources", []),
+                        config={"type": "ai_generated"},
+                    )
+        except Exception as e:
+            logger.error(f"Failed to generate skill from description: {e}")
+
+        # Fallback: create a basic skill from the description
+        return self.create_skill(
+            name=description[:30],
+            description=description,
+            category="custom",
+            tools=[],
+            prompts=[],
+            resources=[],
+            config={"type": "ai_generated"},
+        )

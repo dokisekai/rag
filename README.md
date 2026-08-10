@@ -18,7 +18,7 @@
 
 | 层级 | 技术 |
 |------|------|
-| 后端 | Python 3.9+ / FastAPI / Uvicorn |
+| 后端 | Python 3.11+ / FastAPI / Uvicorn |
 | 前端 | React 19 / Vite / Tailwind CSS 4 |
 | 向量检索 | FAISS / NumPy |
 | 文档解析 | PyMuPDF / python-docx / python-pptx |
@@ -59,7 +59,7 @@ npm install
 npm run dev
 ```
 
-前端运行在 `http://localhost:5173`
+前端运行在 `http://localhost:5174`
 
 ### 4. 一键启动 (macOS)
 
@@ -85,7 +85,7 @@ docker-compose up -d
 | LLM_MODEL | liquid/lfm2-24b-a2b | 模型名称 |
 | EMBEDDING_API_BASE | http://127.0.0.1:1234/v1 | Embedding API 地址 |
 | EMBEDDING_MODEL | text-embedding-qwen3-embedding-0.6b | Embedding 模型 |
-| CORS_ORIGINS | localhost:5173,5174 | 允许的前端来源 |
+| CORS_ORIGINS | localhost:5174,5174 | 允许的前端来源 |
 | LOG_LEVEL | INFO | 日志级别 |
 
 ## API 文档

@@ -23,11 +23,27 @@ export default function DashboardPage() {
     todaySessions: 0,
   });
   const [recentHistory, setRecentHistory] = useState([]);
+  const [systemHealth, setSystemHealth] = useState('检测中');
 
   useEffect(() => {
     fetchStats();
     fetchRecentHistory();
+    fetchHealth();
   }, []);
+
+  const fetchHealth = async () => {
+    try {
+      const resp = await fetch('/api/health');
+      if (resp.ok) {
+        setSystemHealth('运行中');
+      } else {
+        setSystemHealth('异常');
+      }
+    } catch (e) {
+      console.error(e);
+      setSystemHealth('异常');
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -84,10 +100,10 @@ export default function DashboardPage() {
   ];
 
   const systemStatus = [
-    { label: 'RAG 向量引擎', status: '运行中', desc: '嵌入与检索组件就绪', icon: Database },
-    { label: 'LLM 推理服务', status: '运行中', desc: '本地 LM Studio / Ollama', icon: Brain },
-    { label: 'TTS 语音合成', status: '运行中', desc: 'Edge TTS 语音播报', icon: Zap },
-    { label: 'MCP 协议扩展', status: '已连接', desc: '上下文工具插件支持', icon: Server },
+    { label: 'RAG 向量引擎', status: systemHealth, desc: '嵌入与检索组件就绪', icon: Database },
+    { label: 'LLM 推理服务', status: systemHealth, desc: '本地 LM Studio / Ollama', icon: Brain },
+    { label: 'TTS 语音合成', status: systemHealth, desc: 'Edge TTS 语音播报', icon: Zap },
+    { label: 'MCP 协议扩展', status: systemHealth, desc: '上下文工具插件支持', icon: Server },
   ];
 
   return (
@@ -167,10 +183,11 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-2.5">
             {systemStatus.map((item, i) => {
               const Icon = item.icon;
+              const isHealthy = item.status === '运行中' || item.status === '已连接';
               return (
-                <div key={i} className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/30 transition-colors group flex items-center justify-between">
+                <div key={i} className={`p-3 rounded-lg border transition-colors group flex items-center justify-between ${isHealthy ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/30' : 'bg-rose-500/5 border-rose-500/20 hover:border-rose-500/30'}`}>
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                    <div className={`p-2 rounded-lg ${isHealthy ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                       <Icon className="w-4 h-4" />
                     </div>
                     <div>
@@ -180,10 +197,10 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                      {isHealthy && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${isHealthy ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
                     </span>
-                    <span className="text-[10px] font-medium text-emerald-400">{item.status}</span>
+                    <span className={`text-[10px] font-medium ${isHealthy ? 'text-emerald-400' : 'text-rose-400'}`}>{item.status}</span>
                   </div>
                 </div>
               );

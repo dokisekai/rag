@@ -5,6 +5,8 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+logger = logging.getLogger(__name__)
+
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 NOTIFICATION_FILE = os.path.join(DATA_DIR, "notifications.json")
 

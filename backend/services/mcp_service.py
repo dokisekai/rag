@@ -414,6 +414,13 @@ class MCPServer:
             skills = self.skills_service.list_skills(category=category, enabled_only=True)
             return {"content": [{"type": "text", "text": json.dumps(skills, ensure_ascii=False)}]}
 
+        elif tool_name == "get_interview_evaluation":
+            session_id = arguments.get("session_id", "")
+            if not session_id:
+                return {"isError": True, "content": [{"type": "text", "text": "session_id is required"}]}
+            # 返回最近的历史记录作为评估参考
+            return {"content": [{"type": "text", "text": f"Session {session_id} evaluation: Please use /api/interview/history/{session_id} endpoint for detailed evaluation."}]}
+
         elif tool_name == "web_search":
             query = arguments.get("query", "")
             top_k = arguments.get("top_k", 5)

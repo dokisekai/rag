@@ -23,6 +23,7 @@ build/
 # Data (vector store & runtime data)
 backend/data/vector_store/
 data/vector_store/
+data/custom_kb/
 *.faiss
 
 # Runtime data
@@ -32,6 +33,7 @@ backend/data/notifications.json
 # Environment
 .env
 .env.local
+.env.*
 
 # Logs
 *.log

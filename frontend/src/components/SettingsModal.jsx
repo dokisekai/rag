@@ -28,6 +28,10 @@ export default function SettingsModal({ isOpen, onClose, config, onSave, avatarT
   const [searchFilterPortals, setSearchFilterPortals] = useState(config.searchFilterPortals ?? true);
   const [searchLlmExtraction, setSearchLlmExtraction] = useState(config.searchLlmExtraction ?? true);
 
+  // TTS 语音合成开关与语音自动提交
+  const [ttsEnabled, setTtsEnabled] = useState(config.ttsEnabled ?? false);
+  const [autoSubmitVoice, setAutoSubmitVoice] = useState(config.autoSubmitVoice ?? false);
+
   const [saved, setSaved] = useState(false);
 
   // 在线模型拉取与测试连接状态
@@ -126,6 +130,8 @@ export default function SettingsModal({ isOpen, onClose, config, onSave, avatarT
       searchRetryEnabled,
       searchFilterPortals,
       searchLlmExtraction,
+      ttsEnabled,
+      autoSubmitVoice,
     };
     onSave(newCfg);
     try {
@@ -144,6 +150,8 @@ export default function SettingsModal({ isOpen, onClose, config, onSave, avatarT
           search_retry_enabled: !!searchRetryEnabled,
           search_filter_portals: !!searchFilterPortals,
           search_llm_extraction: !!searchLlmExtraction,
+          tts_enabled: !!ttsEnabled,
+          auto_submit_voice: !!autoSubmitVoice,
         }),
       });
       setSaved(true);
