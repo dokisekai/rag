@@ -23,7 +23,7 @@ def get_all_notifications() -> List[Dict[str, Any]]:
             notifications = json.load(f)
             return sorted(notifications, key=lambda x: x.get("created_at", ""), reverse=True)
     except Exception as e:
-        print(f"Error loading notifications: {e}")
+        logger.error("Error loading notifications: %s", e)
         return []
 
 

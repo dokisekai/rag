@@ -2,6 +2,9 @@ import re
 import html
 import base64
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import List, Dict, Any, Tuple
 
 requests.packages.urllib3.disable_warnings()
@@ -107,7 +110,7 @@ class SearchService:
                         print(f"🔍 [LLM 智能提炼搜索关键词]: '{clean_q}' -> '{extracted}'")
                         return extracted
             except Exception as e:
-                print(f"⚠️ [LLM 关键词提炼异常，降级至规则提炼]: {e}")
+                logger.warning("LLM keyword extraction failed, falling back to rule-based: %s", e)
 
         # 3. 降级规则提炼
         return self.clean_query(clean_q)
@@ -163,8 +166,8 @@ class SearchService:
                     decoded = base64.b64decode(b64_str.replace('-', '+').replace('_', '/')).decode('utf-8', errors='ignore')
                     if decoded.startswith('http'):
                         return decoded
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug('Decode fallback skipped: %s', e)
         return raw_url
 
     def _filter_and_extract_results(self, raw_query: str, blocks: List[str], top_k: int = 5) -> List[Dict[str, Any]]:
@@ -250,7 +253,7 @@ class SearchService:
                     if len(res) >= 2:
                         return res
             except Exception as e:
-                print(f"⚠️ Bing 联网搜索发生错误 ({q}): {e}")
+                logger.warning("Bing search error (%s): %s", q, e)
 
         return []
 
@@ -288,7 +291,7 @@ class SearchService:
                         "source": "Baidu Search"
                     })
         except Exception as e:
-            print(f"⚠️ Baidu 联网搜索发生错误: {e}")
+            logger.warning("Baidu search error: %s", e)
 
         return results
     def search(self, query: str, top_k: int = None, llm_service: Any = None) -> List[Dict[str, Any]]:

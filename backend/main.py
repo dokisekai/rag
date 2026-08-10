@@ -2,6 +2,22 @@ import os
 import json
 import asyncio
 import re
+import logging
+
+# Load .env file if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# Configure logging
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
 os.environ["NO_PROXY"] = "localhost,127.0.0.1,::1"
 os.environ["no_proxy"] = "localhost,127.0.0.1,::1"
@@ -9,6 +25,7 @@ try:
     import httpx
 except ImportError:
     httpx = None
+import requests
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,19 +57,21 @@ from services.notification_service import (
 
 app = FastAPI(title="AI Voice Knowledge Base Backend Server")
 
+ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 llm_service = LLMService(
-    api_key="",
-    api_base="http://127.0.0.1:1234/v1",
-    model="liquid/lfm2-24b-a2b",
-    temperature=1.0
+    api_key=os.getenv("LLM_API_KEY", ""),
+    api_base=os.getenv("LLM_API_BASE", "http://127.0.0.1:1234/v1"),
+    model=os.getenv("LLM_MODEL", "liquid/lfm2-24b-a2b"),
+    temperature=float(os.getenv("LLM_TEMPERATURE", "1.0"))
 )
 
 rag_service = RagService(vector_store_path="data/vector_store")
@@ -679,7 +698,7 @@ def build_rag_context(kb_id: Optional[str], query: str, top_k: int = 8,
         context_text = "\n\n".join(context_parts)
         return context_text, results, result
     except Exception as e:
-        print(f"RAG search error: {e}")
+        logger.error(f"RAG search error: {e}")
         return "", [], {"error": str(e)}
 
 
@@ -694,7 +713,7 @@ async def start_interview(req: StartInterviewModel):
 
     # rag_enabled 取决于前端，不再受 skills_service 限制，保证 RAG 流程始终正常触发
 
-    if rag_enabled and req.kb_id:
+    if req.rag_enabled and req.kb_id:
         rag_text, rag_chunks, rag_meta = build_rag_context(req.kb_id, query="知识库主题概述与核心内容", top_k=8)
         if rag_text:
             content = f"【RAG 检索增强真实上下文】\n{rag_text}\n\n" + content
@@ -904,7 +923,7 @@ async def interview_chat_stream(request: Request, payload: dict):
             )
             session_id = new_record.get("id")
         except Exception as e:
-            print(f"⚠️ 会话预创建失败: {e}")
+            logger.warning(f"Session pre-create failed: {e}")
 
     async def event_generator():
         # 🆕 立即通知前端：会话已创建（首个事件，让前端尽早拿到 session_id）
@@ -956,7 +975,7 @@ async def interview_chat_stream(request: Request, payload: dict):
             try:
                 for chunk in llm_service.chat_completion_stream(messages, temperature=stream_temp):
                     if await request.is_disconnected():
-                        print("🛑 [Stream Aborted] 客户端手动停止回答，真实切断后台 LLM 连接并停止生成")
+                        logger.info("Stream aborted by client")
                         return
                     if chunk and not chunk.startswith("【无法连接") and not chunk.startswith("【API 请求异常"):
                         has_llm_tokens = True
@@ -964,7 +983,7 @@ async def interview_chat_stream(request: Request, payload: dict):
                         token_data = json.dumps({'type': 'token', 'content': chunk}, ensure_ascii=False)
                         yield f"data: {token_data}\n\n"
             except Exception as e:
-                print(f"Stream error: {e}")
+                logger.error(f"Stream error: {e}")
 
         def is_truncated(text: str) -> bool:
             """判断 LLM 输出是否真正在半句中途发生中断（排除 Markdown 引用与结构闭合）"""
@@ -981,10 +1000,10 @@ async def interview_chat_stream(request: Request, payload: dict):
         continuation_count = 0
         while has_llm_tokens and is_truncated(full_reply) and continuation_count < max_continuations:
             if await request.is_disconnected():
-                print("🛑 [Stream Aborted] 客户端已断开，取消自动续写")
+                logger.info("Stream aborted: client disconnected, cancelling auto-continuation")
                 return
             continuation_count += 1
-            print(f"[Auto-Continuation {continuation_count}] 检测到真正的中途半句截断，触发续写...")
+            logger.info(f"Auto-continuation {continuation_count}: truncated text detected, triggering continuation...")
             continuation_messages = list(messages)
             continuation_messages.append({"role": "assistant", "content": full_reply})
             continuation_messages.append({
@@ -995,19 +1014,19 @@ async def interview_chat_stream(request: Request, payload: dict):
             try:
                 for chunk in llm_service.chat_completion_stream(continuation_messages, temperature=1.0):
                     if await request.is_disconnected():
-                        print("🛑 [Stream Aborted] 客户端手动停止回答，真实切断后台 LLM 续写连接")
+                        logger.info("Stream aborted: client stopped during auto-continuation")
                         return
                     if chunk and not chunk.startswith("【无法连接") and not chunk.startswith("【API 请求异常"):
                         # 若续写内容开头包含了已有标题（如 ### 贪吃蛇），说明 LLM 从头重写，立即终止重复生成
                         if continuation_text == "" and re.match(r'^\s*#{1,4}\s*', chunk):
-                            print("⚠️ 发现 LLM 尝试重复生成小节标题，自动截断避免重复")
+                            logger.warning("LLM attempted to repeat section title, auto-truncated")
                             break
                         continuation_text += chunk
                         full_reply += chunk
                         token_data = json.dumps({'type': 'token', 'content': chunk}, ensure_ascii=False)
                         yield f"data: {token_data}\n\n"
             except Exception as e:
-                print(f"Auto-continuation stream error: {e}")
+                logger.error(f"Auto-continuation stream error: {e}")
                 break
             if not continuation_text.strip():
                 break
@@ -1034,7 +1053,7 @@ async def interview_chat_stream(request: Request, payload: dict):
                     web_results=web_results
                 )
         except Exception as e:
-            print(f"⚠️ 会话自动持久化失败: {e}")
+            logger.warning(f"Session auto-persist failed: {e}")
 
         done_data = json.dumps({
             'type': 'done',

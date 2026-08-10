@@ -1,4 +1,7 @@
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 import asyncio
 import tempfile
 import edge_tts
@@ -38,7 +41,7 @@ async def generate_speech_audio(
         await communicate.save(output_path)
         return output_path
     except Exception as e:
-        print(f"TTS Audio Generation Warning (Network/DNS): {e}")
+        logger.warning("TTS audio generation warning (Network/DNS): %s", e)
         return None
 
 def synthesize_text_to_audio(text: str, voice: str = DEFAULT_VOICE) -> Optional[str]:

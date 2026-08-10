@@ -1,6 +1,13 @@
 import os
 import re
 import math
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Embedding configuration (can be overridden via environment variables)
+EMBEDDING_API_BASE = os.getenv("EMBEDDING_API_BASE", "http://127.0.0.1:1234/v1")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", EMBEDDING_MODEL)
 import json
 import time
 import uuid
@@ -157,7 +164,7 @@ def embedding_rerank(
     query: str,
     candidates: List[Dict[str, Any]],
     api_base: str = "http://127.0.0.1:1234/v1",
-    model: str = "text-embedding-qwen3-embedding-0.6b",
+    model: str = EMBEDDING_MODEL,
 ) -> List[Dict[str, Any]]:
     if not candidates:
         return []
@@ -185,7 +192,7 @@ def embedding_rerank(
                 result.append(new_cand)
             return result
     except Exception as e:
-        print(f"Rerank fallback (local embeddings offline): {e}")
+        logger.warning(f"Rerank fallback (local embeddings offline): {e}")
 
     # 离线极速回退：基于确定性哈希特征计算余弦相似度，避免由于本地 Embedding 服务未启动导致 500 报错
     import hashlib
@@ -274,11 +281,11 @@ def query_rewrite(
                 try:
                     result = json.loads(match.group(0))
                     return result.get("rewritten_query", query), result.get("variants", [])
-                except:
+                except (json.JSONDecodeError, KeyError, TypeError):
                     pass
             return query, []
     except Exception as e:
-        print(f"Query rewrite failed: {e}")
+        logger.warning(f"Query rewrite failed: {e}")
         return query, []
 
 
@@ -407,7 +414,7 @@ class RagService:
                             "documents": documents,
                         }
                     except Exception as e:
-                        print(f"Failed to load KB {kb_dir.name}: {e}")
+                        logger.error(f"Failed to load KB {kb_dir.name}: {e}")
 
     def _deserialize_chunks(self, raw_chunks: List[Any]) -> List[Dict[str, Any]]:
         """兼容旧版：纯字符串列表或字典列表"""
@@ -608,16 +615,17 @@ class RagService:
 
     def _embed_chunks(self, chunks: List[Any], emb_dim: int = 1536) -> np.ndarray:
         texts = [self._get_chunk_field(c, "content") for c in chunks]
-        url = "http://127.0.0.1:1234/v1/embeddings"
+        url = f"{EMBEDDING_API_BASE}/embeddings"
         embeddings = [None] * len(texts)
         
         # 快速测试本地 Embedding 服务连通性 (timeout=1.5s)
         use_remote = False
         try:
-            test_resp = requests.post(url, json={"input": ["test"], "model": "text-embedding-qwen3-embedding-0.6b"}, timeout=15.0)
+            test_resp = requests.post(url, json={"input": ["test"], "model": EMBEDDING_MODEL}, timeout=15.0)
             if test_resp.status_code == 200:
                 use_remote = True
-        except Exception:
+        except Exception as e:
+            logger.debug("Embedding service connectivity check failed: %s", e)
             use_remote = False
 
         if use_remote:
@@ -626,13 +634,13 @@ class RagService:
                 end = start + batch_size
                 batch = texts[start:end]
                 try:
-                    resp = requests.post(url, json={"input": batch, "model": "text-embedding-qwen3-embedding-0.6b"}, timeout=60)
+                    resp = requests.post(url, json={"input": batch, "model": EMBEDDING_MODEL}, timeout=60)
                     if resp.status_code == 200:
                         data = resp.json().get("data", [])
                         for idx, e in enumerate(data):
                             embeddings[start + idx] = np.array(e["embedding"], dtype=np.float32)
                 except Exception as e:
-                    print(f"Embedding batch failed: {e}")
+                    logger.warning(f"Embedding batch failed: {e}")
 
         # 快速极速回退：基于 MD5 哈希生成确定性向量，无需等待网络超时
         import hashlib
@@ -787,15 +795,15 @@ class RagService:
         kb = self.kbs.get(kb_id)
         if not kb or not kb["index"]:
             return []
-        url = "http://127.0.0.1:1234/v1/embeddings"
+        url = f"{EMBEDDING_API_BASE}/embeddings"
         dim = kb["emb_dim"]
         query_vec = None
         try:
-            resp = requests.post(url, json={"input": [query], "model": "text-embedding-qwen3-embedding-0.6b"}, timeout=15.0)
+            resp = requests.post(url, json={"input": [query], "model": EMBEDDING_MODEL}, timeout=15.0)
             if resp.status_code == 200:
                 query_vec = np.array(resp.json()["data"][0]["embedding"], dtype=np.float32).reshape(1, -1)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Vector search embedding failed, using fallback: %s", e)
 
         if query_vec is None:
             # 极速确定性哈希向量（与 _embed_chunks 完全一致）

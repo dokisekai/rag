@@ -22,7 +22,7 @@ def get_all_history() -> List[Dict[str, Any]]:
             records = json.load(f)
             return sorted(records, key=lambda x: x.get("created_at", ""), reverse=True)
     except Exception as e:
-        print(f"Error loading history: {e}")
+        logger.error("Error loading history: %s", e)
         return []
 
 def get_history_by_id(session_id: str) -> Optional[Dict[str, Any]]:

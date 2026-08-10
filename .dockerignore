@@ -1,0 +1,12 @@
+backend/venv/
+frontend/node_modules/
+.git/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+*.log
+data/vector_store/
+backend/data/vector_store/
+backend/data/history.json
+backend/data/notifications.json

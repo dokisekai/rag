@@ -1,6 +1,9 @@
 import json
 import requests
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import Dict, Any, List, Generator
 
 _COMPAT_PARAMS = [
@@ -132,8 +135,8 @@ class LLMService:
                                         yield f"<think>{reasoning}</think>"
                                     elif content:
                                         yield content
-                                except Exception:
-                                    pass
+                                except (json.JSONDecodeError, KeyError, IndexError) as e:
+                                    logger.debug('Stream parse error: %s', e)
                     return
 
                 error_text = resp.text
@@ -154,8 +157,8 @@ class LLMService:
                                                 content = chunk["choices"][0]["delta"].get("content", "")
                                                 if content:
                                                     yield content
-                                            except Exception:
-                                                pass
+                                            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                                                logger.debug('Stream parse error: %s', e)
                                 return
                     error_text = resp2.text
 
