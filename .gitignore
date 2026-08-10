@@ -20,9 +20,14 @@ build/
 *.swp
 *.swo
 
-# Data (large files)
+# Data (vector store & runtime data)
 backend/data/vector_store/
+data/vector_store/
 *.faiss
+
+# Runtime data
+backend/data/history.json
+backend/data/notifications.json
 
 # Environment
 .env
@@ -30,6 +35,9 @@ backend/data/vector_store/
 
 # Logs
 *.log
+
+# Node
+frontend/node_modules/
 
 # Workbuddy
 .workbuddy/

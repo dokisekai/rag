@@ -1,9 +1,0 @@
-{
-  "name": "测试 RAG 元数据知识库",
-  "chunks": [],
-  "emb_dim": 1536,
-  "type": "custom",
-  "source_file": "",
-  "file_size": 0,
-  "created_at": 1785106714.8709571
-}
