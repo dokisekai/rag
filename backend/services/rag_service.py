@@ -31,12 +31,34 @@ from services.document_parser import (
 # ---------------- Text Processing Utilities ----------------
 
 def tokenize(text: str) -> List[str]:
+    """中英文混合分词：中文用 jieba，英文用正则"""
+    if not text:
+        return []
     tokens = []
-    for char in text:
-        if '\u4e00' <= char <= '\u9fff':
-            tokens.append(char)
-    word_tokens = re.findall(r'[a-zA-Z0-9_]+', text.lower())
-    tokens.extend(word_tokens)
+    # 尝试使用 jieba 分词（更好的中文支持）
+    try:
+        import jieba
+        jieba_tokens = list(jieba.cut(text, cut_all=False))
+        for t in jieba_tokens:
+            t = t.strip()
+            if not t:
+                continue
+            # 纯英文/数字 token 直接加入
+            if re.match(r'^[a-zA-Z0-9_]+$', t):
+                tokens.append(t.lower())
+            elif len(t) > 1:
+                # 中文词组（长度>1）直接加入
+                tokens.append(t)
+            # 单个中文字符也加入（保持向后兼容）
+            elif '\u4e00' <= t <= '\u9fff':
+                tokens.append(t)
+    except ImportError:
+        # jieba 未安装时降级为字符级切分
+        for char in text:
+            if '\u4e00' <= char <= '\u9fff':
+                tokens.append(char)
+        word_tokens = re.findall(r'[a-zA-Z0-9_]+', text.lower())
+        tokens.extend(word_tokens)
     return tokens
 
 
@@ -185,7 +207,20 @@ def embedding_rerank(
                 doc_vec = np.array(data[i + 1]["embedding"], dtype=np.float32)
                 sim = cosine_similarity(query_vec, doc_vec)
                 scores.append(sim)
-            scored = list(zip(candidates, scores))
+            # 关键词重叠度补充分数
+            query_tokens_set = set(tokenize(query))
+            overlap_scores = []
+            for cand in candidates:
+                cand_tokens_set = set(tokenize(cand.get("content", "")))
+                if query_tokens_set and cand_tokens_set:
+                    overlap = len(query_tokens_set & cand_tokens_set) / len(query_tokens_set)
+                else:
+                    overlap = 0.0
+                overlap_scores.append(overlap)
+            
+            # 混合分数：70% 向量相似度 + 30% 关键词重叠度
+            combined_scores = [0.7 * s + 0.3 * o for s, o in zip(scores, overlap_scores)]
+            scored = list(zip(candidates, combined_scores))
             scored.sort(key=lambda x: x[1], reverse=True)
             result = []
             for cand, score in scored:
@@ -210,7 +245,20 @@ def embedding_rerank(
         doc_vec = get_hash_vec(cand.get("content", ""))
         sim = cosine_similarity(query_vec, doc_vec)
         scores.append(sim)
-    scored = list(zip(candidates, scores))
+    # 关键词重叠度补充分数
+    query_tokens_set = set(tokenize(query))
+    overlap_scores = []
+    for cand in candidates:
+        cand_tokens_set = set(tokenize(cand.get("content", "")))
+        if query_tokens_set and cand_tokens_set:
+            overlap = len(query_tokens_set & cand_tokens_set) / len(query_tokens_set)
+        else:
+            overlap = 0.0
+        overlap_scores.append(overlap)
+    
+    # 混合分数：70% 向量相似度 + 30% 关键词重叠度
+    combined_scores = [0.7 * s + 0.3 * o for s, o in zip(scores, overlap_scores)]
+    scored = list(zip(candidates, combined_scores))
     scored.sort(key=lambda x: x[1], reverse=True)
     result = []
     for cand, score in scored:
@@ -353,6 +401,9 @@ class RagService:
         self.kbs: Dict[str, Dict[str, Any]] = {}
         self.stats = RagStats()
         self.chunking_engine = ChunkingEngine(min_len=300, max_len=800, overlap=80)
+        # 查询向量缓存 (LRU, 最多缓存 200 条)
+        self._query_cache: Dict[str, Any] = {}
+        self._query_cache_max = 200
         self._load_existing_kbs()
 
     # ---------- Persistence ----------
@@ -801,6 +852,20 @@ class RagService:
         kb = self.kbs.get(kb_id)
         if not kb or not kb["index"]:
             return []
+        # 检查缓存
+        cache_key = f"{kb_id}:{query}"
+        if cache_key in self._query_cache:
+            cached_vec = self._query_cache[cache_key]
+            faiss.normalize_L2(cached_vec)
+            D, I = kb["index"].search(cached_vec, top_k)
+            results = []
+            for idx, score in zip(I[0], D[0]):
+                if idx < 0 or idx >= len(kb["chunks"]):
+                    continue
+                if float(score) < 0.40:
+                    continue
+                results.append((int(idx), float(score)))
+            return results
         url = f"{EMBEDDING_API_BASE}/embeddings"
         dim = kb["emb_dim"]
         query_vec = None
@@ -818,6 +883,13 @@ class RagService:
             seed = int.from_bytes(hash_digest[:4], 'little')
             rng = np.random.RandomState(seed)
             query_vec = rng.randn(1, dim).astype(np.float32)
+
+        # 缓存查询向量
+        if len(self._query_cache) >= self._query_cache_max:
+            # 简单 LRU：删除最早的 key
+            oldest = next(iter(self._query_cache))
+            del self._query_cache[oldest]
+        self._query_cache[cache_key] = query_vec.copy()
 
         faiss.normalize_L2(query_vec)
         D, I = kb["index"].search(query_vec, top_k)

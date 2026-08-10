@@ -43,3 +43,7 @@ frontend/node_modules/
 
 # Workbuddy
 .workbuddy/
+.pytest_cache/
+backend/data/app.db
+backend/data/app.db-shm
+backend/data/app.db-wal

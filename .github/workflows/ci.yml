@@ -36,11 +36,16 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest httpx
       - name: Verify imports
         working-directory: backend
         run: |
           python -c "import main; print('Backend imports OK')"
-      - name: Run available tests
+      - name: Run pytest unit tests
+        working-directory: backend
+        run: |
+          python -m pytest tests/ -v --tb=short
+      - name: Compile check
         working-directory: backend
         run: |
           python -m py_compile main.py

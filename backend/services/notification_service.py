@@ -1,38 +1,59 @@
-import os
+"""通知服务 —— 基于 SQLite 存储。
+
+所有函数签名与返回值格式与原 JSON 版本完全一致，main.py 无需修改。
+extra 在数据库中以 JSON 字符串存储，读取时反序列化；
+read 在数据库中存为 INTEGER (0/1)，返回时转为 bool。
+"""
+
 import json
 import uuid
 import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from services.database import get_connection
+
 logger = logging.getLogger(__name__)
 
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
-NOTIFICATION_FILE = os.path.join(DATA_DIR, "notifications.json")
+
+# ---------------------------------------------------------------------------
+# 内部工具
+# ---------------------------------------------------------------------------
+def _row_to_notification(row) -> Dict[str, Any]:
+    """将数据库行转换为通知字典（JSON 字段已反序列化，read 转为 bool）。"""
+    return {
+        "id": row["id"],
+        "type": row["type"],
+        "title": row["title"],
+        "content": row["content"],
+        "read": bool(row["read"]),
+        "related_id": row["related_id"],
+        "extra": json.loads(row["extra"]) if row["extra"] else {},
+        "created_at": row["created_at"],
+    }
 
 
-def _ensure_data_file():
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR, exist_ok=True)
-    if not os.path.exists(NOTIFICATION_FILE):
-        with open(NOTIFICATION_FILE, "w", encoding="utf-8") as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
-
-
+# ---------------------------------------------------------------------------
+# 对外接口（签名不变）
+# ---------------------------------------------------------------------------
 def get_all_notifications() -> List[Dict[str, Any]]:
-    _ensure_data_file()
     try:
-        with open(NOTIFICATION_FILE, "r", encoding="utf-8") as f:
-            notifications = json.load(f)
-            return sorted(notifications, key=lambda x: x.get("created_at", ""), reverse=True)
+        conn = get_connection()
+        cur = conn.execute("SELECT * FROM notifications ORDER BY created_at DESC")
+        return [_row_to_notification(row) for row in cur.fetchall()]
     except Exception as e:
         logger.error("Error loading notifications: %s", e)
         return []
 
 
 def get_unread_count() -> int:
-    notifications = get_all_notifications()
-    return sum(1 for n in notifications if not n.get("read", False))
+    try:
+        conn = get_connection()
+        cur = conn.execute("SELECT COUNT(*) FROM notifications WHERE read = 0")
+        return cur.fetchone()[0]
+    except Exception as e:
+        logger.error("Error counting unread notifications: %s", e)
+        return 0
 
 
 def create_notification(
@@ -42,8 +63,6 @@ def create_notification(
     related_id: Optional[str] = None,
     extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    _ensure_data_file()
-
     notification = {
         "id": str(uuid.uuid4()),
         "type": notification_type,
@@ -55,47 +74,63 @@ def create_notification(
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-    notifications = get_all_notifications()
-    notifications.append(notification)
-
-    with open(NOTIFICATION_FILE, "w", encoding="utf-8") as f:
-        json.dump(notifications, f, ensure_ascii=False, indent=2)
+    try:
+        conn = get_connection()
+        conn.execute(
+            """
+            INSERT INTO notifications
+                (id, type, title, content, read, related_id, extra, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                notification["id"],
+                notification_type,
+                title,
+                content,
+                0,
+                related_id,
+                json.dumps(extra or {}, ensure_ascii=False),
+                notification["created_at"],
+            ),
+        )
+        conn.commit()
+    except Exception as e:
+        logger.error("Error creating notification: %s", e)
 
     return notification
 
 
 def mark_as_read(notification_id: str) -> bool:
-    notifications = get_all_notifications()
-    found = False
-    for n in notifications:
-        if n.get("id") == notification_id:
-            n["read"] = True
-            found = True
-            break
-    if found:
-        with open(NOTIFICATION_FILE, "w", encoding="utf-8") as f:
-            json.dump(notifications, f, ensure_ascii=False, indent=2)
-    return found
+    try:
+        conn = get_connection()
+        cur = conn.execute(
+            "UPDATE notifications SET read = 1 WHERE id = ?",
+            (notification_id,),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error("Error marking notification as read: %s", e)
+        return False
 
 
 def mark_all_as_read() -> int:
-    notifications = get_all_notifications()
-    count = 0
-    for n in notifications:
-        if not n.get("read", False):
-            n["read"] = True
-            count += 1
-    if count > 0:
-        with open(NOTIFICATION_FILE, "w", encoding="utf-8") as f:
-            json.dump(notifications, f, ensure_ascii=False, indent=2)
-    return count
+    try:
+        conn = get_connection()
+        cur = conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
+        conn.commit()
+        return cur.rowcount
+    except Exception as e:
+        logger.error("Error marking all notifications as read: %s", e)
+        return 0
 
 
 def delete_notification(notification_id: str) -> bool:
-    notifications = get_all_notifications()
-    filtered = [n for n in notifications if n.get("id") != notification_id]
-    if len(filtered) < len(notifications):
-        with open(NOTIFICATION_FILE, "w", encoding="utf-8") as f:
-            json.dump(filtered, f, ensure_ascii=False, indent=2)
-        return True
-    return False
+    try:
+        conn = get_connection()
+        cur = conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error("Error deleting notification: %s", e)
+        return False

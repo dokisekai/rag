@@ -27,9 +27,9 @@ except ImportError:
     httpx = None
 import requests
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Header
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse, Response
+from fastapi.responses import FileResponse, StreamingResponse, Response, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from services.file_reader import get_question_modules, read_module_content
@@ -72,6 +72,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+API_KEY = os.getenv("API_KEY", "")
+
+@app.middleware("http")
+async def api_key_auth(request: Request, call_next):
+    # 如果未配置 API_KEY，跳过认证
+    if not API_KEY:
+        return await call_next(request)
+    # 健康检查端点免认证
+    if request.url.path == "/api/health":
+        return await call_next(request)
+    # 检查 API Key
+    if request.url.path.startswith("/api/"):
+        provided_key = request.headers.get("X-API-Key", "")
+        if provided_key != API_KEY:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing API key. Provide X-API-Key header."}
+            )
+    return await call_next(request)
 
 
 # ---------------- Health Check ----------------
@@ -453,6 +473,7 @@ def create_empty_kb(
 @app.post("/api/knowledge/{kb_id}/documents/upload")
 async def upload_documents_to_existing_kb(
     kb_id: str,
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...)
 ):
     kb_list = rag_service.list_kbs()
@@ -473,12 +494,12 @@ async def upload_documents_to_existing_kb(
         doc_id = rag_service.add_document(kb_id, upload.filename or "document.md", file_content)
         uploaded_docs.append({"doc_id": doc_id, "filename": upload.filename, "size": len(file_content)})
 
-    rag_service.build_index(kb_id)
+    background_tasks.add_task(rag_service.build_index, kb_id)
     kb_info = next((kb for kb in rag_service.list_kbs() if kb["id"] == kb_id), None)
     return {
         "status": "success",
         "kb_id": kb_id,
-        "message": f"已成功向知识库追加 {len(uploaded_docs)} 个文档并更新向量索引",
+        "message": "文档已上传，正在后台构建向量索引",
         "kb_info": kb_info,
         "documents": uploaded_docs
     }
@@ -486,6 +507,7 @@ async def upload_documents_to_existing_kb(
 
 @app.post("/api/knowledge/upload")
 async def upload_kb(
+    background_tasks: BackgroundTasks,
     kb_name: Optional[str] = Form("通用 AI 知识库"),
     files: List[UploadFile] = File(...)
 ):
@@ -503,11 +525,11 @@ async def upload_kb(
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
         doc_id = rag_service.add_document(kb_id, upload.filename or "document.md", file_content)
         uploaded_docs.append({"doc_id": doc_id, "filename": upload.filename, "size": len(file_content)})
-    rag_service.build_index(kb_id)
+    background_tasks.add_task(rag_service.build_index, kb_id)
     kb_info = next((kb for kb in rag_service.list_kbs() if kb["id"] == kb_id), None)
     return {
         "kb_id": kb_id,
-        "message": "知识库已创建并索引完成",
+        "message": "文档已上传，正在后台构建向量索引",
         "kb_info": kb_info,
         "documents": uploaded_docs
     }
@@ -617,6 +639,29 @@ def preview_kb_document(kb_id: str, doc_id: str, max_chars: int = 2000):
 @app.get("/api/knowledge/stats")
 def get_rag_stats():
     return rag_service.get_stats()
+
+
+@app.get("/api/metrics")
+def get_metrics():
+    """Prometheus 风格的 metrics 端点"""
+    stats = rag_service.get_stats()
+    lines = [
+        f"# TYPE rag_total_queries counter",
+        f"rag_total_queries {stats.get('total_queries', 0)}",
+        f"# TYPE rag_avg_retrieval_time_ms gauge",
+        f"rag_avg_retrieval_time_ms {stats.get('avg_retrieval_time_ms', 0)}",
+        f"# TYPE rag_vector_search_count counter",
+        f"rag_vector_search_count {stats.get('vector_search_count', 0)}",
+        f"# TYPE rag_bm25_search_count counter",
+        f"rag_bm25_search_count {stats.get('bm25_search_count', 0)}",
+        f"# TYPE rag_rerank_count counter",
+        f"rag_rerank_count {stats.get('rerank_count', 0)}",
+        f"# TYPE rag_kb_count gauge",
+        f"rag_kb_count {len(rag_service.list_kbs())}",
+        f"# TYPE rag_skill_count gauge",
+        f"rag_skill_count {len(skills_service.list_skills())}",
+    ]
+    return PlainTextResponse("\n".join(lines), media_type="text/plain")
 
 
 @app.get("/api/knowledge/{kb_id}/vectors")
