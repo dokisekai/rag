@@ -59,6 +59,12 @@ app = FastAPI(title="AI Voice Knowledge Base Backend Server")
 
 ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174").split(",")
 
+# Maximum upload size: 50MB per file
+MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(50 * 1024 * 1024)))
+
+# Allowed file extensions for knowledge base documents
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -66,6 +72,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------- Health Check ----------------
+
+@app.get("/api/health")
+def health_check():
+    """健康检查端点，用于 Docker healthcheck 和负载均衡探活"""
+    return {
+        "status": "healthy",
+        "service": "VoiceRAG AI Knowledge Base",
+        "version": "1.0.0",
+        "kb_count": len(rag_service.list_kbs()),
+        "skill_count": len(skills_service.list_skills()),
+    }
+
 
 llm_service = LLMService(
     api_key=os.getenv("LLM_API_KEY", ""),
@@ -342,7 +363,7 @@ Put ALL your response inside the function arguments. Do NOT write any text outsi
             resp_content = resp.content
             resp_headers = dict(resp.headers)
             resp_headers.pop("content-length", None)
-            resp_headers["access-control-allow-origin"] = "*"
+            resp_headers["access-control-allow-origin"] = ", ".join(ALLOWED_ORIGINS)
 
             if (has_tools and path.endswith("chat/completions")
                     and resp.status_code == 200
@@ -439,10 +460,15 @@ async def upload_documents_to_existing_kb(
     uploaded_docs = []
     total_size = 0
     for upload in files:
-        content = await upload.read()
-        total_size += len(content)
-        doc_id = rag_service.add_document(kb_id, upload.filename or "document.md", content)
-        uploaded_docs.append({"doc_id": doc_id, "filename": upload.filename, "size": len(content)})
+        file_content = await upload.read()
+        total_size += len(file_content)
+        if len(file_content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=413, detail=f"File {upload.filename} exceeds max upload size ({MAX_UPLOAD_SIZE // 1024 // 1024}MB)")
+        ext = os.path.splitext(upload.filename or "")[1].lower()
+        if ext and ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
+        doc_id = rag_service.add_document(kb_id, upload.filename or "document.md", file_content)
+        uploaded_docs.append({"doc_id": doc_id, "filename": upload.filename, "size": len(file_content)})
 
     rag_service.build_index(kb_id)
     kb_info = next((kb for kb in rag_service.list_kbs() if kb["id"] == kb_id), None)
@@ -465,10 +491,15 @@ async def upload_kb(
     total_size = 0
     uploaded_docs = []
     for upload in files:
-        content = await upload.read()
-        total_size += len(content)
-        doc_id = rag_service.add_document(kb_id, upload.filename or "document.md", content)
-        uploaded_docs.append({"doc_id": doc_id, "filename": upload.filename, "size": len(content)})
+        file_content = await upload.read()
+        total_size += len(file_content)
+        if len(file_content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=413, detail=f"File {upload.filename} exceeds max upload size ({MAX_UPLOAD_SIZE // 1024 // 1024}MB)")
+        ext = os.path.splitext(upload.filename or "")[1].lower()
+        if ext and ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
+        doc_id = rag_service.add_document(kb_id, upload.filename or "document.md", file_content)
+        uploaded_docs.append({"doc_id": doc_id, "filename": upload.filename, "size": len(file_content)})
     rag_service.build_index(kb_id)
     kb_info = next((kb for kb in rag_service.list_kbs() if kb["id"] == kb_id), None)
     return {
@@ -1318,4 +1349,6 @@ async def mcp_sse_endpoint():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)

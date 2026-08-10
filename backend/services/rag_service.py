@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 # Embedding configuration (can be overridden via environment variables)
 EMBEDDING_API_BASE = os.getenv("EMBEDDING_API_BASE", "http://127.0.0.1:1234/v1")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", EMBEDDING_MODEL)
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-qwen3-embedding-0.6b")
+# LLM model for query rewrite (can be overridden via environment variables)
+LLM_MODEL = os.getenv("LLM_MODEL", "liquid/lfm2-24b-a2b")
 import json
 import time
 import uuid
@@ -163,7 +165,7 @@ def cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
 def embedding_rerank(
     query: str,
     candidates: List[Dict[str, Any]],
-    api_base: str = "http://127.0.0.1:1234/v1",
+    api_base: str = EMBEDDING_API_BASE,
     model: str = EMBEDDING_MODEL,
 ) -> List[Dict[str, Any]]:
     if not candidates:
@@ -224,7 +226,7 @@ def query_rewrite(
     query: str,
     history: Optional[List[Dict[str, str]]] = None,
     api_base: str = "http://127.0.0.1:1234/v1",
-    model: str = "liquid/lfm2-24b-a2b",
+    model: str = LLM_MODEL,
 ) -> Tuple[str, List[str]]:
     try:
         history_text = ""

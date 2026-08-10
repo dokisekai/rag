@@ -2,9 +2,12 @@ import os
 import re
 import time
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_simple_yaml(text: str) -> Dict[str, Any]:
@@ -314,7 +317,7 @@ class SkillsService:
                 content=body_content,
             )
         except Exception as e:
-            print(f"Failed to parse skill {skill_dir}: {e}")
+            logger.error(f"Failed to parse skill {skill_dir}: {e}")
             return None
 
     def _load_skills(self):
@@ -361,7 +364,7 @@ class SkillsService:
             skill.updated_at = stat.st_mtime
             return True
         except Exception as e:
-            print(f"Failed to save skill {skill.id}: {e}")
+            logger.error(f"Failed to save skill {skill.id}: {e}")
             return False
 
     def list_skills(self, category: Optional[str] = None, enabled_only: bool = False) -> List[Dict[str, Any]]:
@@ -470,7 +473,7 @@ class SkillsService:
             del self.skills[skill_id]
             return True
         except Exception as e:
-            print(f"Failed to delete skill {skill_id}: {e}")
+            logger.error(f"Failed to delete skill {skill_id}: {e}")
             return False
 
     def toggle_skill(self, skill_id: str, enabled: bool) -> Optional[Dict[str, Any]]:

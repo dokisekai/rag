@@ -107,7 +107,7 @@ class SearchService:
                     extracted = re.sub(r'[\r\n"\'`“”‘’：:,.!?，。！？]', ' ', llm_result).strip()
                     extracted = re.sub(r'\s+', ' ', extracted).strip()
                     if extracted and len(extracted) >= 2 and len(extracted) < len(clean_q) + 20:
-                        print(f"🔍 [LLM 智能提炼搜索关键词]: '{clean_q}' -> '{extracted}'")
+                        logger.info(f"LLM keyword extraction: {clean_q} -> {extracted}")
                         return extracted
             except Exception as e:
                 logger.warning("LLM keyword extraction failed, falling back to rule-based: %s", e)

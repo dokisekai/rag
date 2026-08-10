@@ -4,9 +4,12 @@ import time
 import uuid
 import asyncio
 import subprocess
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -42,7 +45,7 @@ class MCPClient:
                     server = MCPServerConfig(**server_data)
                     self.servers[server.id] = server
             except Exception as e:
-                print(f"Failed to load MCP config: {e}")
+                logger.error(f"Failed to load MCP config: {e}")
 
     def _save_config(self):
         data = []
@@ -107,7 +110,7 @@ class MCPClient:
         if server_id in self._processes:
             try:
                 self._processes[server_id].terminate()
-            except:
+            except Exception:
                 pass
             del self._processes[server_id]
         self._save_config()
@@ -275,7 +278,7 @@ class MCPClient:
         if server_id in self._processes:
             try:
                 self._processes[server_id].terminate()
-            except:
+            except Exception:
                 pass
             del self._processes[server_id]
         server = self.servers.get(server_id)

@@ -1,10 +1,13 @@
 import os
 import json
 import uuid
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+
+logger = logging.getLogger(__name__)
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
 
 def _ensure_data_file():
