@@ -1,0 +1,30 @@
+{
+  "name": "测试 RAG 元数据知识库",
+  "chunks": [
+    {
+      "chunk_id": "31b0154946f640beadfd75cb898d7f0d_0",
+      "doc_id": "31b0154946f640beadfd75cb898d7f0d",
+      "kb_id": "01387fbb6d6e4531b11144ef899141d7",
+      "content": "### Java Concurrent\n\nThreadPoolExecutor AQS CountDownLatch",
+      "index_in_doc": 0,
+      "heading_path": "Java Concurrent",
+      "node_type": "heading",
+      "metadata": {}
+    },
+    {
+      "chunk_id": "e8cb3f0a1de34321b970860b520e6a6d_0",
+      "doc_id": "e8cb3f0a1de34321b970860b520e6a6d",
+      "kb_id": "01387fbb6d6e4531b11144ef899141d7",
+      "content": "### Redis Cache\n\nRedis Cluster Sentinel Redisson Cache",
+      "index_in_doc": 0,
+      "heading_path": "Redis Cache",
+      "node_type": "heading",
+      "metadata": {}
+    }
+  ],
+  "emb_dim": 1536,
+  "type": "custom",
+  "source_file": "Redis高级缓存实战.md",
+  "file_size": 51,
+  "created_at": 1785106718.543276
+}

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+.DS_Store?
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (large files)
+backend/data/vector_store/
+*.faiss
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Workbuddy
+.workbuddy/

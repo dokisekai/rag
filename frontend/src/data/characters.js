@@ -1,0 +1,77 @@
+import { Bot, Sparkles, User } from 'lucide-react';
+
+export const CHARACTERS = {
+  svg: {
+    id: 'svg',
+    name: '小音',
+    title: 'AI 智库专家 · 经典款',
+    personality: '专业严谨 · 条理清晰',
+    voice: 'zh-CN-XiaoxiaoNeural',
+    voiceName: '微软晓晓',
+    color: 'from-indigo-500 via-purple-500 to-pink-500',
+    bgColor: 'from-indigo-950/50 via-purple-950/30 to-pink-950/50',
+    borderColor: 'border-indigo-500/30',
+    glowColor: 'shadow-indigo-500/30',
+    textColor: 'text-indigo-300',
+    accentColor: 'text-purple-400',
+    icon: Bot,
+    description: '经典 SVG 形象，科技感十足的 AI 知识库对话助手',
+    background: '拥有严谨的逻辑思维和丰富的知识储备，能够高效检索并解答知识库中的各类技术文档与知识。',
+    tags: ['专业', '严谨', '科技感'],
+    features: [
+      'SVG 矢量动画，流畅不卡顿',
+      '表情随对话状态动态变化',
+      '音频可视化频谱联动',
+    ],
+  },
+  warashi: {
+    id: 'warashi',
+    name: '樱',
+    title: '座敷童子 · 和风知识助手',
+    personality: '温柔细致 · 善于讲解',
+    voice: 'zh-CN-XiaoyiNeural',
+    voiceName: '微软晓伊',
+    color: 'from-rose-500 via-pink-500 to-red-500',
+    bgColor: 'from-rose-950/50 via-pink-950/30 to-red-950/50',
+    borderColor: 'border-rose-500/30',
+    glowColor: 'shadow-rose-500/30',
+    textColor: 'text-rose-300',
+    accentColor: 'text-pink-400',
+    icon: Sparkles,
+    description: '日式和风形象，温柔可爱的 AI 知识导学助手',
+    background: '用温柔的语气和细致的梳理，协助你在轻松的氛围中探索知识库中的每一处细节。',
+    tags: ['温柔', '治愈', '和风'],
+    features: [
+      '日式和服少女形象',
+      '精致发型与发饰细节',
+      '温暖的粉橙色调',
+    ],
+  },
+  dh_live: {
+    id: 'dh_live',
+    name: 'Luna',
+    title: 'DH_Live · 实时智库数字人',
+    personality: '灵动真实 · 科技未来',
+    voice: 'zh-CN-YunxiNeural',
+    voiceName: '微软云希',
+    color: 'from-purple-500 via-violet-500 to-fuchsia-500',
+    bgColor: 'from-purple-950/50 via-violet-950/30 to-fuchsia-950/50',
+    borderColor: 'border-purple-500/30',
+    glowColor: 'shadow-purple-500/30',
+    textColor: 'text-purple-300',
+    accentColor: 'text-violet-400',
+    icon: User,
+    description: 'DH_Live 实时渲染数字人，最接近真人的 AI 交互体验',
+    background: '基于 DH_Live 技术栈打造的超写实数字人，拥有细腻的面部表情和自然的嘴型同步。',
+    tags: ['写实', '未来感', '实时渲染'],
+    features: [
+      'Canvas 实时渲染技术',
+      '嘴型与语音精准同步',
+      '微表情与神态变化',
+    ],
+  },
+};
+
+export const getCharacter = (id) => CHARACTERS[id] || CHARACTERS.svg;
+
+export const getCharacterList = () => Object.values(CHARACTERS);

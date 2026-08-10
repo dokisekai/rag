@@ -1,0 +1,352 @@
+[
+  {
+    "id": "153e381c6e774280ac5a1d1b1ed7eba1",
+    "name": "RAG 知识库检索",
+    "description": "从自定义知识库中检索相关技术文档，支持混合检索与重排序",
+    "category": "knowledge",
+    "version": "1.0.0",
+    "enabled": true,
+    "tools": [
+      {
+        "name": "search_knowledge_base",
+        "description": "在指定知识库中搜索相关文档",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "kb_id": {
+              "type": "string",
+              "description": "知识库 ID"
+            },
+            "query": {
+              "type": "string",
+              "description": "搜索查询"
+            },
+            "top_k": {
+              "type": "integer",
+              "description": "返回结果数量",
+              "default": 5
+            }
+          },
+          "required": [
+            "kb_id",
+            "query"
+          ]
+        }
+      }
+    ],
+    "prompts": [
+      {
+        "name": "rag_interviewer",
+        "description": "基于 RAG 知识库的面试提问模板",
+        "template": "请基于以下知识库内容进行面试提问：\n{context}"
+      }
+    ],
+    "resources": [],
+    "created_at": 1785105515.08411,
+    "updated_at": 1785105515.08411,
+    "config": {
+      "type": "builtin"
+    }
+  },
+  {
+    "id": "1f67bfb11902424caadc9a7544accdd0",
+    "name": "全网实时搜索",
+    "description": "调用 Bing 搜索引擎获取最新网页信息，支持智能关键词提炼与相关性过滤",
+    "category": "knowledge",
+    "version": "1.0.0",
+    "enabled": true,
+    "tools": [
+      {
+        "name": "web_search",
+        "description": "全网实时联网搜索，获取最新网页信息",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "搜索查询"
+            },
+            "top_k": {
+              "type": "integer",
+              "description": "返回结果数量",
+              "default": 5
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    ],
+    "prompts": [
+      {
+        "name": "web_research",
+        "description": "联网调研模式 Prompt",
+        "template": "你是一位资深技术研究员。请结合联网搜索结果，对用户的问题进行全面、深入、准确的解答。引用来源请标注 [网页 N]。"
+      }
+    ],
+    "resources": [],
+    "created_at": 1785106752.929543,
+    "updated_at": 1785106752.929543,
+    "config": {
+      "type": "builtin"
+    }
+  },
+  {
+    "id": "b691a23259c1467ca88a350f8fca441b",
+    "name": "代码解释助手",
+    "description": "深入剖析代码逻辑，解释实现原理，识别潜在问题，提供优化建议",
+    "category": "code",
+    "version": "1.0.0",
+    "enabled": true,
+    "tools": [
+      {
+        "name": "analyze_code",
+        "description": "分析代码结构、逻辑与潜在问题",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "待分析的代码"
+            },
+            "language": {
+              "type": "string",
+              "description": "编程语言",
+              "default": "python"
+            },
+            "depth": {
+              "type": "string",
+              "description": "分析深度: brief/deep/comprehensive",
+              "default": "deep"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      },
+      {
+        "name": "generate_code_explanation",
+        "description": "生成代码逐行解释与架构说明",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "待解释的代码"
+            },
+            "language": {
+              "type": "string",
+              "description": "编程语言",
+              "default": "python"
+            },
+            "audience": {
+              "type": "string",
+              "description": "受众水平: beginner/intermediate/advanced",
+              "default": "intermediate"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      }
+    ],
+    "prompts": [
+      {
+        "name": "code_review",
+        "description": "代码评审模式 Prompt",
+        "template": "你是一位资深架构师。请对用户提供的代码进行全面评审，从以下维度展开：\n1. 功能正确性\n2. 代码规范与可读性\n3. 性能与效率\n4. 安全性\n5. 可维护性与扩展性\n6. 具体优化建议（附代码示例）"
+      },
+      {
+        "name": "code_explanation",
+        "description": "代码讲解模式 Prompt",
+        "template": "你是一位耐心的技术导师。请深入浅出地为用户讲解这段代码的工作原理，包括：\n1. 整体架构与设计思路\n2. 核心数据结构与算法\n3. 关键函数逐行解析\n4. 输入输出示例\n5. 常见边界情况处理"
+      }
+    ],
+    "resources": [],
+    "created_at": 1785106752.929554,
+    "updated_at": 1785106752.929554,
+    "config": {
+      "type": "builtin"
+    }
+  },
+  {
+    "id": "954dd75d1c474105984d476c93eb35d6",
+    "name": "技术方案评估",
+    "description": "多维度评估技术选型与架构方案，对比优劣，给出决策建议",
+    "category": "evaluation",
+    "version": "1.0.0",
+    "enabled": true,
+    "tools": [
+      {
+        "name": "evaluate_tech_stack",
+        "description": "评估技术栈选型的合理性",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "tech_stacks": {
+              "type": "array",
+              "description": "待评估的技术栈列表",
+              "items": {
+                "type": "string"
+              }
+            },
+            "scenario": {
+              "type": "string",
+              "description": "应用场景描述"
+            },
+            "criteria": {
+              "type": "array",
+              "description": "评估维度",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "性能",
+                "可扩展性",
+                "学习成本",
+                "生态成熟度",
+                "社区支持"
+              ]
+            }
+          },
+          "required": [
+            "tech_stacks",
+            "scenario"
+          ]
+        }
+      },
+      {
+        "name": "architecture_review",
+        "description": "架构方案评审与优化建议",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "architecture": {
+              "type": "string",
+              "description": "架构方案描述"
+            },
+            "scale": {
+              "type": "string",
+              "description": "系统规模: small/medium/large",
+              "default": "medium"
+            },
+            "focus": {
+              "type": "string",
+              "description": "重点关注: performance/reliability/cost/maintainability",
+              "default": "performance"
+            }
+          },
+          "required": [
+            "architecture"
+          ]
+        }
+      }
+    ],
+    "prompts": [
+      {
+        "name": "tech_evaluation",
+        "description": "技术评估模式 Prompt",
+        "template": "你是一位资深技术架构师。请基于用户的业务场景和需求，对技术方案进行全面、客观、深入的评估。\n\n评估框架：\n1. 背景与目标对齐\n2. 方案对比分析（多维度打分）\n3. 优势与风险\n4. 推荐方案与理由\n5. 落地建议与里程碑\n\n请给出明确的决策建议，避免模棱两可。"
+      },
+      {
+        "name": "architecture_design",
+        "description": "架构设计模式 Prompt",
+        "template": "你是一位资深系统架构师。请根据用户的需求描述，设计一套高可用、可扩展的系统架构方案，包括：\n1. 整体架构图与模块划分\n2. 技术选型与理由\n3. 数据流与核心流程\n4. 高可用与容灾设计\n5. 性能优化策略\n6. 演进路线图"
+      }
+    ],
+    "resources": [],
+    "created_at": 1785106752.929562,
+    "updated_at": 1785106752.929562,
+    "config": {
+      "type": "builtin"
+    }
+  },
+  {
+    "id": "0e0672e7162b41f9b1df7d1da42bfb58",
+    "name": "学习路径规划",
+    "description": "根据知识库内容生成系统化学习路径、练习题与掌握度评估",
+    "category": "other",
+    "version": "1.0.0",
+    "enabled": true,
+    "tools": [
+      {
+        "name": "generate_learning_path",
+        "description": "生成系统化学习路径",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "topic": {
+              "type": "string",
+              "description": "学习主题"
+            },
+            "level": {
+              "type": "string",
+              "description": "当前水平: beginner/intermediate/advanced",
+              "default": "beginner"
+            },
+            "duration": {
+              "type": "string",
+              "description": "预计学习周期",
+              "default": "4周"
+            }
+          },
+          "required": [
+            "topic"
+          ]
+        }
+      },
+      {
+        "name": "generate_quiz",
+        "description": "生成练习题与答案",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "topic": {
+              "type": "string",
+              "description": "题目主题"
+            },
+            "count": {
+              "type": "integer",
+              "description": "题目数量",
+              "default": 5
+            },
+            "type": {
+              "type": "string",
+              "description": "题目类型: choice/essay/mixed",
+              "default": "mixed"
+            },
+            "difficulty": {
+              "type": "string",
+              "description": "难度: easy/medium/hard",
+              "default": "medium"
+            }
+          },
+          "required": [
+            "topic"
+          ]
+        }
+      }
+    ],
+    "prompts": [
+      {
+        "name": "tutoring_mode",
+        "description": "导学讲解模式 Prompt",
+        "template": "你是一位耐心亲和的技术导师。请用通俗易懂、循序渐进的方式讲解知识，帮助用户建立完整的知识体系。\n\n讲解原则：\n1. 从基础概念入手，逐步深入\n2. 多用类比和生活化例子\n3. 配合代码示例和图示说明\n4. 适时提问检验理解\n5. 每部分结束后总结要点"
+      },
+      {
+        "name": "quiz_mode",
+        "description": "测验评估模式 Prompt",
+        "template": "你是一位严谨的测评导师。请围绕用户指定的主题，生成一套高质量的练习题，用于检验学习效果。\n\n题目要求：\n1. 覆盖核心知识点\n2. 难度梯度合理\n3. 题目表述清晰无歧义\n4. 提供详细答案解析\n5. 指出易错点和扩展方向"
+      }
+    ],
+    "resources": [],
+    "created_at": 1785106752.92957,
+    "updated_at": 1785106752.92957,
+    "config": {
+      "type": "builtin"
+    }
+  }
+]
