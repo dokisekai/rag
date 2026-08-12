@@ -19,8 +19,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-os.environ["NO_PROXY"] = "localhost,127.0.0.1,::1"
-os.environ["no_proxy"] = "localhost,127.0.0.1,::1"
+_no_proxy = os.getenv("NO_PROXY", "localhost,127.0.0.1,::1,backend")
+os.environ["NO_PROXY"] = _no_proxy
+os.environ["no_proxy"] = _no_proxy
 try:
     import httpx
 except ImportError:
@@ -80,8 +81,8 @@ async def api_key_auth(request: Request, call_next):
     # 如果未配置 API_KEY，跳过认证
     if not API_KEY:
         return await call_next(request)
-    # 健康检查端点免认证
-    if request.url.path == "/api/health":
+    # 健康检查和监控端点免认证
+    if request.url.path in ("/api/health", "/api/metrics"):
         return await call_next(request)
     # 检查 API Key
     if request.url.path.startswith("/api/"):
@@ -99,13 +100,20 @@ async def api_key_auth(request: Request, call_next):
 @app.get("/api/health")
 def health_check():
     """健康检查端点，用于 Docker healthcheck 和负载均衡探活"""
-    return {
-        "status": "healthy",
-        "service": "VoiceRAG AI Knowledge Base",
-        "version": "1.0.0",
-        "kb_count": len(rag_service.list_kbs()),
-        "skill_count": len(skills_service.list_skills()),
-    }
+    try:
+        return {
+            "status": "healthy",
+            "service": "VoiceRAG AI Knowledge Base",
+            "version": "1.0.0",
+            "kb_count": len(rag_service.list_kbs()),
+            "skill_count": len(skills_service.list_skills()),
+        }
+    except Exception as e:
+        logger.error("Health check failed: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "error": str(e)}
+        )
 
 
 llm_service = LLMService(
